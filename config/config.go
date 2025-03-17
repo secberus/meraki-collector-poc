@@ -17,8 +17,9 @@
 package config
 
 import (
-	"encoding/json"
 	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -29,21 +30,21 @@ const (
 )
 
 type S6sConfig struct {
-	Endpoint        string `json:"endpoint"`
-	X509Certificate []byte `json:"x509_certificate"`
-	CaKey           []byte `json:"ca_key"`
-	CaBundle        []byte `json:"ca_bundle"`
+	Endpoint        string `yaml:"endpoint"`
+	X509Certificate string `yaml:"x509_certificate"`
+	PrivateKey      string `yaml:"private_key"`
+	CABundle        string `yaml:"ca_bundle"`
 }
 
 type MerakiConfig struct {
-	BaseUrl string `json:"base_url"`
-	ApiKey  string `json:"api_key"`
-	Debug   bool   `json:"debug"`
+	BaseUrl string `yaml:"base_url"`
+	ApiKey  string `yaml:"api_key"`
+	Debug   bool   `yaml:"debug"`
 }
 
 type Config struct {
-	S6s    S6sConfig    `json:"s6s"`
-	Meraki MerakiConfig `json:"meraki"`
+	S6s    S6sConfig    `yaml:"s6s"`
+	Meraki MerakiConfig `yaml:"meraki"`
 }
 
 func Load() (*Config, error) {
@@ -63,7 +64,7 @@ func Load() (*Config, error) {
 	cfg.S6s.Endpoint = DefaultEndpoint
 	cfg.Meraki.BaseUrl = DefaultBaseUrl
 
-	if err := json.Unmarshal(raw, &cfg); err != nil {
+	if err := yaml.Unmarshal(raw, &cfg); err != nil {
 		return nil, err
 	}
 

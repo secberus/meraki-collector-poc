@@ -56,38 +56,27 @@ func (c Collector) register(ctx context.Context, t *v1.Table) error {
 	return nil
 }
 
-func (c Collector) collect(ctx context.Context, rc *resource.Resource, parent any) ([]*v1.Record, error) {
+func (c Collector) collect(ctx context.Context, rc *resource.Resource, parent any) error {
 	t := rc.Table
 	if err := c.register(ctx, t); err != nil {
-		return nil, fmt.Errorf("failed to register table %q: %w", t.Name, err)
+		return fmt.Errorf("failed to register table %q: %w", t.Name, err)
 	}
 
 	var recs []*v1.Record
 	for v, err := range rc.Resolver(ctx, c.meraki, parent) {
 		if err != nil {
-			return recs, fmt.Errorf("failed to collect for table %q: %w", t.Name, err)
+			return fmt.Errorf("failed to collect for table %q: %w", t.Name, err)
 		}
 		if r, err := resource.RecordFor(t, v); err != nil {
-			return recs, fmt.Errorf("failed to create Record for table %q: %w", t.Name, err)
+			return fmt.Errorf("failed to create Record for table %q: %w", t.Name, err)
 		} else {
 			recs = append(recs, r)
 		}
 		for _, cr := range rc.Children {
-			if crecs, err := c.collect(ctx, cr, v); err != nil {
-				return recs, fmt.Errorf("failed to collect child for table %q: %w", t.Name, err)
-			} else {
-				recs = append(recs, crecs...)
+			if err := c.collect(ctx, cr, v); err != nil {
+				return fmt.Errorf("failed to collect child for table %q: %w", t.Name, err)
 			}
 		}
-	}
-
-	return recs, nil
-}
-
-func (c Collector) Collect(ctx context.Context, rc *resource.Resource) error {
-	recs, err := c.collect(ctx, rc, nil)
-	if err != nil {
-		return err
 	}
 
 	if _, err := c.pushsvc.UpsertRecords(ctx, &api.UpsertRecordsInput{Records: recs}); err != nil {
@@ -95,4 +84,8 @@ func (c Collector) Collect(ctx context.Context, rc *resource.Resource) error {
 	}
 
 	return nil
+}
+
+func (c Collector) Collect(ctx context.Context, rc *resource.Resource) error {
+	return c.collect(ctx, rc, nil)
 }

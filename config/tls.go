@@ -26,20 +26,20 @@ import (
 
 func Credentials(cfg *S6sConfig) (credentials.TransportCredentials, error) {
 
-	cert, err := tls.X509KeyPair(cfg.X509Certificate, cfg.CaKey)
+	cert, err := tls.X509KeyPair([]byte(cfg.X509Certificate), []byte(cfg.PrivateKey))
 	if err != nil {
 		return nil, err
 	}
 
 	certPool := x509.NewCertPool()
-	if !certPool.AppendCertsFromPEM(cfg.CaBundle) {
+	if !certPool.AppendCertsFromPEM([]byte(cfg.CABundle)) {
 		return nil, errors.New("failed to parse CA certificates")
 	}
 
 	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      certPool,
-		// InsecureSkipVerify: true,
+		Certificates:       []tls.Certificate{cert},
+		RootCAs:            certPool,
+		InsecureSkipVerify: true,
 	}
 	return credentials.NewTLS(tlsConfig), nil
 }
