@@ -30,7 +30,7 @@ func initMerakiClient(cfg *config.MerakiConfig) (*meraki.Client, error) {
 		cfg.BaseUrl,
 		cfg.ApiKey,
 		strconv.FormatBool(cfg.Debug),
-		"s6s-meraki-collector/0.0.0 Secberus (+https://secberus.io)",
+		"meraki-collector/0.0.0 Secberus (+https://secberus.com)",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Meraki client: %w", err)
