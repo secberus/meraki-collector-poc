@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log"
 
 	meraki "github.com/meraki/dashboard-api-go/v4/sdk"
 	v1 "github.com/secberus/go-push-api/types/v1"
@@ -42,16 +43,22 @@ var Devices = &Resource{
 func getNetworkDevices(ctx context.Context, client *meraki.Client, network any) iter.Seq2[any, error] {
 	networkId := network.(meraki.ResponseItemOrganizationsGetOrganizationNetworks).ID
 	return func(yield func(any, error) bool) {
-		rsp, _, err := client.Networks.GetNetworkDevices(networkId)
+		rsl, rsp, err := client.Networks.GetNetworkDevices(networkId)
 		if err != nil {
+			if rsp != nil && rsp.IsError() {
+				log.Printf("rsp status: %s, error: %+v\n", rsp.Status(), rsp.Error())
+				if err2, ok := rsp.Error().(error); ok {
+					err = errors.Join(err, err2)
+				}
+			}
 			yield(nil, fmt.Errorf("failed to GetNetworkDevices: %w", err))
 			return
 		}
-		if rsp == nil {
+		if rsl == nil {
 			yield(nil, errors.New("received nil response from GetNetworkDevices"))
 			return
 		}
-		for _, i := range *rsp {
+		for _, i := range *rsl {
 			if !yield(i, nil) {
 				return
 			}

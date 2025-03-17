@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log"
 	"time"
 
 	meraki "github.com/meraki/dashboard-api-go/v4/sdk"
@@ -43,16 +44,22 @@ func getConfigurationChanges(ctx context.Context, client *meraki.Client, org any
 		params := &meraki.GetOrganizationConfigurationChangesQueryParams{
 			Timespan: 24 * time.Hour.Seconds(),
 		}
-		rsp, _, err := client.Organizations.GetOrganizationConfigurationChanges(orgId, params)
+		rsl, rsp, err := client.Organizations.GetOrganizationConfigurationChanges(orgId, params)
 		if err != nil {
+			if rsp != nil && rsp.IsError() {
+				log.Printf("rsp status: %s, error: %+v\n", rsp.Status(), rsp.Error())
+				if err2, ok := rsp.Error().(error); ok {
+					err = errors.Join(err, err2)
+				}
+			}
 			yield(nil, fmt.Errorf("failed to GetOrganizationConfigurationChanges: %w", err))
 			return
 		}
-		if rsp == nil {
+		if rsl == nil {
 			yield(nil, errors.New("received nil response from GetOrganizationConfigurationChanges"))
 			return
 		}
-		for _, i := range *rsp {
+		for _, i := range *rsl {
 			if !yield(i, nil) {
 				return
 			}

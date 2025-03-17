@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log"
 
 	meraki "github.com/meraki/dashboard-api-go/v4/sdk"
 	v1 "github.com/secberus/go-push-api/types/v1"
@@ -29,7 +30,7 @@ import (
 
 var Clients = &Resource{
 	Table: &v1.Table{
-		Name:     "meraki_device_client",
+		Name:     "meraki_device_clients",
 		SyncType: v1.TableSyncType_TABLE_SYNC_TYPE_APPEND,
 		Columns:  columnsFor[meraki.ResponseItemDevicesGetDeviceClients]("serial"),
 	},
@@ -39,16 +40,22 @@ var Clients = &Resource{
 func getDeviceClients(_ context.Context, client *meraki.Client, device any) iter.Seq2[any, error] {
 	serial := device.(meraki.ResponseItemNetworksGetNetworkDevices).Serial
 	return func(yield func(any, error) bool) {
-		rsp, _, err := client.Devices.GetDeviceClients(serial, nil)
+		rsl, rsp, err := client.Devices.GetDeviceClients(serial, nil)
 		if err != nil {
+			if rsp != nil && rsp.IsError() {
+				log.Printf("rsp status: %s, error: %+v\n", rsp.Status(), rsp.Error())
+				if err2, ok := rsp.Error().(error); ok {
+					err = errors.Join(err, err2)
+				}
+			}
 			yield(nil, fmt.Errorf("failed to GetDeviceClients: %w", err))
 			return
 		}
-		if rsp == nil {
+		if rsl == nil {
 			yield(nil, errors.New("received nil response from GetDeviceClients"))
 			return
 		}
-		for _, i := range *rsp {
+		for _, i := range *rsl {
 			if !yield(i, nil) {
 				return
 			}

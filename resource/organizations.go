@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log"
 
 	meraki "github.com/meraki/dashboard-api-go/v4/sdk"
 	v1 "github.com/secberus/go-push-api/types/v1"
@@ -42,16 +43,22 @@ var Organizations = &Resource{
 
 func getOrganizations(ctx context.Context, client *meraki.Client, _ any) iter.Seq2[any, error] {
 	return func(yield func(any, error) bool) {
-		rsp, _, err := client.Organizations.GetOrganizations(&meraki.GetOrganizationsQueryParams{PerPage: -1})
+		rsl, rsp, err := client.Organizations.GetOrganizations(&meraki.GetOrganizationsQueryParams{PerPage: -1})
 		if err != nil {
+			if rsp != nil && rsp.IsError() {
+				log.Printf("rsp status: %s, error: %+v\n", rsp.Status(), rsp.Error())
+				if err2, ok := rsp.Error().(error); ok {
+					err = errors.Join(err, err2)
+				}
+			}
 			yield(nil, fmt.Errorf("failed to GetOrganizations: %w", err))
 			return
 		}
-		if rsp == nil {
+		if rsl == nil {
 			yield(nil, errors.New("received nil response from GetOrganizations"))
 			return
 		}
-		for _, i := range *rsp {
+		for _, i := range *rsl {
 			if !yield(i, nil) {
 				return
 			}

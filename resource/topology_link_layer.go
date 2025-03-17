@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log"
 
 	meraki "github.com/meraki/dashboard-api-go/v4/sdk"
 	v1 "github.com/secberus/go-push-api/types/v1"
@@ -29,7 +30,7 @@ import (
 
 var TopologyLinkLayer = &Resource{
 	Table: &v1.Table{
-		Name:     "meraki_topology_link_layer",
+		Name:     "meraki_topology_link_layers",
 		SyncType: v1.TableSyncType_TABLE_SYNC_TYPE_APPEND,
 		Columns:  columnsFor[topologyLinkLayer]("network_id"),
 	},
@@ -46,20 +47,26 @@ type topologyLinkLayer struct {
 func getTopologyLinkLayer(ctx context.Context, client *meraki.Client, network any) iter.Seq2[any, error] {
 	networkId := network.(meraki.ResponseItemOrganizationsGetOrganizationNetworks).ID
 	return func(yield func(any, error) bool) {
-		rsp, _, err := client.Networks.GetNetworkTopologyLinkLayer(networkId)
+		rsl, rsp, err := client.Networks.GetNetworkTopologyLinkLayer(networkId)
 		if err != nil {
+			if rsp != nil && rsp.IsError() {
+				log.Printf("rsp status: %s, error: %+v\n", rsp.Status(), rsp.Error())
+				if err2, ok := rsp.Error().(error); ok {
+					err = errors.Join(err, err2)
+				}
+			}
 			yield(nil, fmt.Errorf("failed to GetNetworkTopologyLinkLayer: %w", err))
 			return
 		}
-		if rsp == nil {
+		if rsl == nil {
 			yield(nil, errors.New("received nil response from GetNetworkTopologyLinkLayer"))
 			return
 		}
 		yield(topologyLinkLayer{
 			NetworkId: networkId,
-			Errors:    rsp.Errors,
-			Links:     rsp.Links,
-			Nodes:     rsp.Nodes,
+			Errors:    rsl.Errors,
+			Links:     rsl.Links,
+			Nodes:     rsl.Nodes,
 		}, nil)
 	}
 }

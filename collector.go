@@ -20,6 +20,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
 
 	meraki "github.com/meraki/dashboard-api-go/v4/sdk"
 	api "github.com/secberus/go-push-api/api/v1"
@@ -48,8 +50,13 @@ func (c Collector) register(ctx context.Context, t *v1.Table) error {
 		return nil
 	}
 
-	if _, err := c.pushsvc.CreateTable(ctx, &api.CreateTableInput{Table: t}); err != nil {
-		return fmt.Errorf("failed to CreateTable: %w", err)
+	if _, err := c.pushsvc.GetTable(ctx, &api.GetTableInput{TableName: t.Name}); err != nil && strings.Contains(err.Error(), "not found") {
+		log.Printf("table %q does not exist, creating\n", t.Name)
+		if _, err := c.pushsvc.CreateTable(ctx, &api.CreateTableInput{Table: t}); err != nil {
+			return fmt.Errorf("failed to CreateTable: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to GetTable: %w", err)
 	}
 
 	c.tables[t.Name] = struct{}{}
@@ -57,6 +64,8 @@ func (c Collector) register(ctx context.Context, t *v1.Table) error {
 }
 
 func (c Collector) collect(ctx context.Context, rc *resource.Resource, parent any) error {
+	log.Printf("collecting for table %q", rc.Table.Name)
+
 	t := rc.Table
 	if err := c.register(ctx, t); err != nil {
 		return fmt.Errorf("failed to register table %q: %w", t.Name, err)
@@ -79,6 +88,7 @@ func (c Collector) collect(ctx context.Context, rc *resource.Resource, parent an
 		}
 	}
 
+	log.Printf("upserting %d records for table %q", len(recs), t.Name)
 	if _, err := c.pushsvc.UpsertRecords(ctx, &api.UpsertRecordsInput{Records: recs}); err != nil {
 		return fmt.Errorf("failed to upsert %d records: %w", len(recs), err)
 	}
