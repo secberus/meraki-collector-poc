@@ -15,7 +15,7 @@
  *
  */
 
-package main
+package collector
 
 import (
 	"context"
@@ -35,13 +35,27 @@ type Collector struct {
 	tables  map[string]struct{}
 	meraki  *meraki.Client
 	pushsvc service.PushServiceClient
+
+	dryrun bool
 }
 
-func NewCollector(meraki *meraki.Client, pushsvc service.PushServiceClient) *Collector {
-	return &Collector{
+type Option func(*Collector)
+
+func New(meraki *meraki.Client, pushsvc service.PushServiceClient, opts ...Option) *Collector {
+	c := &Collector{
 		tables:  make(map[string]struct{}),
 		meraki:  meraki,
 		pushsvc: pushsvc,
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
+}
+
+func WithDryRun(dryrun bool) Option {
+	return func(c *Collector) {
+		c.dryrun = dryrun
 	}
 }
 
@@ -88,7 +102,12 @@ func (c Collector) collect(ctx context.Context, rc *resource.Resource, parent an
 		}
 	}
 
-	log.Printf("upserting %d records for table %q", len(recs), t.Name)
+	log.Printf("collected %d records for table %q", len(recs), t.Name)
+
+	if c.dryrun {
+		return nil
+	}
+
 	if _, err := c.pushsvc.UpsertRecords(ctx, &api.UpsertRecordsInput{Records: recs}); err != nil {
 		return fmt.Errorf("failed to upsert %d records: %w", len(recs), err)
 	}

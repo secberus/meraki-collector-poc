@@ -17,56 +17,98 @@
 package config
 
 import (
+	"errors"
+	"fmt"
 	"os"
+	"strings"
 
+	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	DefaultConfigFile = "$HOME/.s6s/config"
-	ConfigFileEnvVar  = "S6S_CONFIG_FILE"
-	DefaultEndpoint   = "push.secberus.io:7744"
-	DefaultBaseUrl    = "https://api.meraki.com/"
+	ConfigFileKey        = "config-file"
+	BundleFileKey        = "bundle-file"
+	PushEndpointKey      = "push.endpoint"
+	MerakiBaseUrlKey     = "meraki.base-url"
+	MerakiApiKeyKey      = "meraki.api-key"
+	MerakiDebugKey       = "meraki.debug"
+	DefaultBundleFile    = "$HOME/.s6s/bundle.json"
+	DefaultPushEndpoint  = "push.secberus.io:7744"
+	DefaultMerakiBaseUrl = "https://api.meraki.com/"
 )
 
-type S6sConfig struct {
+type PushConfig struct {
 	Endpoint        string `yaml:"endpoint"`
-	X509Certificate string `yaml:"x509_certificate"`
-	PrivateKey      string `yaml:"private_key"`
-	CABundle        string `yaml:"ca_bundle"`
+	X509Certificate string `yaml:"x509_certificate" mapstructure:"x509_certificate"`
+	PrivateKey      string `yaml:"private_key" mapstructure:"private_key"`
+	CABundle        string `yaml:"ca_bundle" mapstructure:"ca_bundle"`
 }
 
 type MerakiConfig struct {
-	BaseUrl string `yaml:"base_url"`
-	ApiKey  string `yaml:"api_key"`
+	BaseUrl string `yaml:"base_url" mapstructure:"base_url"`
+	ApiKey  string `yaml:"api_key" mapstructure:"api_key"`
 	Debug   bool   `yaml:"debug"`
 }
 
 type Config struct {
-	S6s    S6sConfig    `yaml:"s6s"`
+	Push   *PushConfig  `yaml:"push"`
 	Meraki MerakiConfig `yaml:"meraki"`
 }
 
 func Load() (*Config, error) {
+	viper.SetEnvPrefix("S6S_")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
+	viper.AutomaticEnv()
 
-	var cfgFile string
-	cfgFile, ok := os.LookupEnv(ConfigFileEnvVar)
-	if !ok {
-		cfgFile = DefaultConfigFile
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+	viper.AddConfigPath("$HOME/.s6s")
+
+	cfgfile := viper.GetString(ConfigFileKey)
+	if cfgfile != "" {
+		viper.SetConfigFile(cfgfile)
 	}
 
-	raw, err := os.ReadFile(os.ExpandEnv(cfgFile))
-	if err != nil {
-		return nil, err
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok && cfgfile != "" {
+			return nil, fmt.Errorf("specified configuration file does not exist: %s", cfgfile)
+		} else {
+			return nil, fmt.Errorf("failed to read configuration file: %s", err)
+		}
 	}
 
-	cfg := new(Config)
-	cfg.S6s.Endpoint = DefaultEndpoint
-	cfg.Meraki.BaseUrl = DefaultBaseUrl
-
-	if err := yaml.Unmarshal(raw, &cfg); err != nil {
-		return nil, err
+	var cfg Config
+	// XXX viper.Unmarshal doesn't treat flag bindings as nested
+	if err := mapstructure.Decode(viper.AllSettings(), &cfg); err != nil {
+		return nil, fmt.Errorf("failed to decode configuration: %s", err)
 	}
 
-	return cfg, nil
+	if cfg.Push == nil || cfg.Push.X509Certificate == "" || cfg.Push.PrivateKey == "" || cfg.Push.CABundle == "" {
+		bundlefile := viper.GetString(BundleFileKey)
+		bundleraw, err := os.ReadFile(bundlefile)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read credentials bundle file %q: %s", bundlefile, bundleraw)
+		}
+
+		if err := yaml.Unmarshal(bundleraw, &cfg.Push); err != nil {
+			return nil, fmt.Errorf("failed to decode credentials bundle file %q: %s", bundlefile, err)
+		}
+	}
+
+	if endpoint := viper.GetString(PushEndpointKey); endpoint != "" {
+		cfg.Push.Endpoint = endpoint
+	}
+
+	if cfg.Push == nil || cfg.Push.X509Certificate == "" || cfg.Push.PrivateKey == "" {
+		return nil, errors.New("datasource Push API credentials are required! check config & bundle files")
+	}
+
+	if cfg.Meraki.ApiKey == "" {
+		return nil, errors.New("meraki API key is required")
+	}
+
+	return &cfg, nil
 }
