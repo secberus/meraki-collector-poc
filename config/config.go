@@ -102,7 +102,7 @@ func Load() (*Config, error) {
 		cfg.Push.Endpoint = endpoint
 	}
 
-	if cfg.Push == nil || cfg.Push.X509Certificate == "" || cfg.Push.PrivateKey == "" {
+	if cfg.Push.X509Certificate == "" || cfg.Push.PrivateKey == "" || cfg.Push.CABundle != "" {
 		return nil, errors.New("datasource Push API credentials are required! check config & bundle files")
 	}
 
