@@ -15,26 +15,26 @@
  *
  */
 
-package main
+package meraki
 
 import (
 	"fmt"
+	"strconv"
 
-	service "github.com/secberus/go-push-api/service/v1/push"
+	meraki "github.com/meraki/dashboard-api-go/v4/sdk"
 	"github.com/secberus/meraki-collector/config"
-	"google.golang.org/grpc"
 )
 
-func initPushClient(cfg *config.S6sConfig) (service.PushServiceClient, error) {
-	tlsCreds, err := config.Credentials(cfg)
+func Init(cfg *config.MerakiConfig) (*meraki.Client, error) {
+	client, err := meraki.NewClientWithOptions(
+		cfg.BaseUrl,
+		cfg.ApiKey,
+		strconv.FormatBool(cfg.Debug),
+		"meraki-collector/0.0.0 Secberus (+https://secberus.com)",
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load Push credentials: %w", err)
+		return nil, fmt.Errorf("failed to create Meraki client: %w", err)
 	}
 
-	conn, err := grpc.NewClient(cfg.Endpoint, grpc.WithTransportCredentials(tlsCreds))
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize Push gRPC client: %w", err)
-	}
-
-	return service.NewPushServiceClient(conn), nil
+	return client, nil
 }
