@@ -34,7 +34,7 @@ const (
 	MerakiBaseUrlKey     = "meraki.base-url"
 	MerakiApiKeyKey      = "meraki.api-key"
 	MerakiDebugKey       = "meraki.debug"
-	DefaultBundleFile    = "$HOME/.s6s/bundle.json"
+	DefaultBundleFile    = "$HOME/.s6s/config"
 	DefaultPushEndpoint  = "push.secberus.io:7744"
 	DefaultMerakiBaseUrl = "https://api.meraki.com/"
 )
