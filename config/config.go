@@ -40,7 +40,7 @@ const (
 )
 
 type PushConfig struct {
-	Endpoint        string `yaml:"endpoint"`
+	Endpoint        string `yaml:"endpoint" mapstructure:"endpoint"`
 	X509Certificate string `yaml:"x509_certificate" mapstructure:"x509_certificate"`
 	PrivateKey      string `yaml:"private_key" mapstructure:"private_key"`
 	CABundle        string `yaml:"ca_bundle" mapstructure:"ca_bundle"`
@@ -102,7 +102,7 @@ func Load() (*Config, error) {
 		cfg.Push.Endpoint = endpoint
 	}
 
-	if cfg.Push.X509Certificate == "" || cfg.Push.PrivateKey == "" || cfg.Push.CABundle != "" {
+	if cfg.Push.X509Certificate == "" || cfg.Push.PrivateKey == "" || cfg.Push.CABundle == "" {
 		return nil, errors.New("datasource Push API credentials are required! check config & bundle files")
 	}
 
