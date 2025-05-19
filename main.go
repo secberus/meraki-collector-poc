@@ -18,33 +18,13 @@
 package main
 
 import (
-	"context"
 	"log"
 
-	"github.com/secberus/meraki-collector/config"
-	"github.com/secberus/meraki-collector/resource"
+	"github.com/secberus/meraki-collector/cmd"
 )
 
 func main() {
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatalf("failed to load configuration: %s", err)
-	}
-
-	meraki, err := initMerakiClient(&cfg.Meraki)
-	if err != nil {
-		log.Fatalf("failed to initialize Meraki client: %s", err)
-	}
-
-	pushsvc, err := initPushClient(&cfg.S6s)
-	if err != nil {
-		log.Fatalf("failed to initialize Push client: %s", err)
-	}
-
-	collector := NewCollector(meraki, pushsvc)
-
-	// collect from Meraki API root (organizations)
-	if err := collector.Collect(context.Background(), resource.Organizations); err != nil {
-		log.Fatalf("failed to collect from Meraki API: %s", err)
+	if err := cmd.Root.Execute(); err != nil {
+		log.Fatal(err)
 	}
 }

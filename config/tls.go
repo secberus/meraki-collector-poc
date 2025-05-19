@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func Credentials(cfg *S6sConfig) (credentials.TransportCredentials, error) {
+func Credentials(cfg *PushConfig) (credentials.TransportCredentials, error) {
 
 	cert, err := tls.X509KeyPair([]byte(cfg.X509Certificate), []byte(cfg.PrivateKey))
 	if err != nil {

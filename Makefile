@@ -20,7 +20,7 @@
 CLIENTAPP := meraki-collector
 
 clean:
-	rm $(CLIENTAPP)
+	$(RM) $(CLIENTAPP)
 
 $(CLIENTAPP):
 	go build -v -o $(CLIENTAPP) .
